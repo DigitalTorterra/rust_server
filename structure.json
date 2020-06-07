@@ -1,0 +1,14 @@
+{
+    "/": {
+        "file": "hello.html",
+        "children": {
+            "hi" : {
+                "file": "hi.html"
+            }
+        }
+    },
+    "error": {
+        "404": "404.html",
+        "500": "500.html"
+    }
+}

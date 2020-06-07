@@ -1,12 +1,23 @@
 extern crate threadpool;
+extern crate log;
+extern crate serde_json;
 
 use std::net::TcpListener;
 use std::env;
 use std::process;
-use rust_server::{ handle_connection, Config };
-//use threadpool::ThreadPool;
+use std::sync::Arc;
+use threadpool::ThreadPool;
+use log::{info, warn};
+use serde_json::Value;
+
+mod lib;
+use lib::{ handle_connection, parse_site_structure };
+mod config;
+use config::Config;
 
 fn main() {
+    env_logger::init();
+
     // Parse command line arguments
     let args: Vec<String> = env::args().collect();
     let config = Config::new(&args).unwrap_or_else(|err| {
@@ -20,20 +31,30 @@ fn main() {
     }
 
     let ip = "127.0.0.1:".to_string() + &config.port;
-    let listener = TcpListener::bind(ip).unwrap();
-    
-    //let n_workers = 4;
-    //let pool = ThreadPool::new(n_workers);
+    info!("Listening on {}", ip);
+
+
+    let listener = TcpListener::bind(ip).unwrap(); 
+    let pool = ThreadPool::new(config.workers);
+
+    let site_structure = Arc::new(parse_site_structure(&config.root).unwrap_or_else(|err| {
+        eprintln!("Invalid structure.json file!");
+        process::exit(1);
+    }));
+    let root = Arc::new(config.root);
 
     for stream in listener.incoming() {
-        let stream = stream.unwrap();
+        info!("Receiving incoming connection");
 
-        /*
-        pool.execute(|| {
-            handle_connection(stream);
+        let stream = stream.unwrap();
+        let site_structure = Arc::clone(&site_structure);
+        let root = Arc::clone(&root);
+
+        
+        pool.execute(move || {
+            handle_connection(stream, root, site_structure);
         });
-        */
-        handle_connection(stream)
+        
     }
 
     println!("Shutting down.");
